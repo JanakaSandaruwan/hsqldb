@@ -58,6 +58,7 @@ import org.hsqldb.navigator.RowIterator;
 import org.hsqldb.rowio.RowInputInterface;
 import org.hsqldb.types.LobData;
 import org.hsqldb.types.Type;
+import java.util.concurrent.locks.StampedLock;
 
 /*
  * Base implementation of PersistentStore for different table types.
@@ -85,6 +86,7 @@ public abstract class RowStoreAVL implements PersistentStore {
     ReadWriteLock lock;
     Lock          readLock;
     Lock          writeLock;
+    StampedLock olcLock;
 
     // for result tables
     // for INFORMATION SCHEMA tables
@@ -790,5 +792,9 @@ public abstract class RowStoreAVL implements PersistentStore {
         NodeAVL  root = (NodeAVL) accessorList[0];
 
         idx.unlinkNodes(this, root);
+    }
+
+    public StampedLock getOlcLock() {
+        return olcLock;
     }
 }

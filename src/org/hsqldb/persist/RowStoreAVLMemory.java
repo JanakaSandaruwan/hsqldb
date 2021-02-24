@@ -54,7 +54,6 @@ import org.hsqldb.rowio.RowInputInterface;
 public class RowStoreAVLMemory extends RowStoreAVL {
 
     AtomicInteger rowIdSequence = new AtomicInteger();
-    private final StampedLock olcLock;
 
     public RowStoreAVLMemory(Table table) {
 
@@ -216,8 +215,5 @@ public class RowStoreAVLMemory extends RowStoreAVL {
     public void writeUnlock() {
         writeLock.unlock();
     }
-
-    public StampedLock getOlcLock() {
-        return olcLock;
-    }
+    
 }
