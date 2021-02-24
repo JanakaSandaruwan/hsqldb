@@ -32,8 +32,7 @@
 package org.hsqldb.persist;
 
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
-
+import java.util.concurrent.locks.*;
 import org.hsqldb.Row;
 import org.hsqldb.RowAVL;
 import org.hsqldb.RowAction;
@@ -55,6 +54,7 @@ import org.hsqldb.rowio.RowInputInterface;
 public class RowStoreAVLMemory extends RowStoreAVL {
 
     AtomicInteger rowIdSequence = new AtomicInteger();
+    private final StampedLock olcLock;
 
     public RowStoreAVLMemory(Table table) {
 
@@ -65,6 +65,7 @@ public class RowStoreAVLMemory extends RowStoreAVL {
         lock              = new ReentrantReadWriteLock(true);
         readLock          = lock.readLock();
         writeLock         = lock.writeLock();
+        olcLock = new StampedLock();
     }
 
     public boolean isMemory() {
@@ -214,5 +215,9 @@ public class RowStoreAVLMemory extends RowStoreAVL {
 
     public void writeUnlock() {
         writeLock.unlock();
+    }
+
+    public StampedLock getOlcLock() {
+        return olcLock;
     }
 }
