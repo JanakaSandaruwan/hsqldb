@@ -2260,7 +2260,7 @@ public class IndexAVL implements Index {
             if (single) {
                 nextnode = null;
             } else {
-                long stamp = store.olcReadLock();
+                long stamp = store.olcTryReadLock();
 
                 while (true) {
                     if (reversed) {
