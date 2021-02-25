@@ -200,6 +200,81 @@ public class RowStoreAVLMemory extends RowStoreAVL {
         ArrayUtil.fillArray(accessorList, null);
     }
 
+    public long elementCount() {
+
+        Index index = this.indexList[0];
+
+        if (elementCount.get() < 0) {
+
+            //readLock();
+            long stamp = olcTryReadLock();
+
+            long count = index.size(null, this);
+
+            if (!olcValidate(stamp)) {
+                stamp = olcReadLock();
+
+                try {
+                    count = index.size(null, this);
+
+                } finally {
+                    //readUnlock();
+                    olcReadUnlock(stamp);
+                }
+
+            }
+
+            elementCount.set(count);
+
+        }
+
+        return elementCount.get();
+    }
+
+    public long elementCount(Session session) {
+
+        if (session == null) {
+            return elementCount();
+        }
+
+        Index index = this.indexList[0];
+
+        if (session.database.txManager.isMVRows()) {
+            switch (table.getTableType()) {
+
+                case TableBase.MEMORY_TABLE :
+                case TableBase.CACHED_TABLE :
+                case TableBase.TEXT_TABLE :
+                    //readLock();
+                    long stamp = olcTryReadLock();
+
+                    long elementCount = index.size(session, this);
+
+                    if (!olcValidate(stamp)) {
+                        stamp = olcReadLock();
+
+                        try {
+                            return index.size(session, this);
+
+                        } finally {
+                            //readUnlock();
+                            olcReadUnlock(stamp);
+                        }
+                    }
+                    return elementCount;
+
+                    //try {
+                    //    return index.size(session, this);
+                    //} finally {
+                    //    readUnlock();
+                    //}
+                default :
+            }
+        }
+
+        return elementCount();
+    }
+
     public void readLock() {
         readLock.lock();
     }
