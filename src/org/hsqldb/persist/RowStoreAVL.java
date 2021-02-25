@@ -696,7 +696,7 @@ public abstract class RowStoreAVL implements PersistentStore {
 
     public void writeUnlock() {}
 
-    public StampedLock getOlcLock() {
+    //public StampedLock getOlcLock() {
         return olcLock;
     }
 
