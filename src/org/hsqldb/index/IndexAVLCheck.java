@@ -273,41 +273,76 @@ public class IndexAVLCheck {
 
             int errors = 0;
 
-            store.readLock();
+            long stamp = store.olcTryReadLock();
 
-            try {
-                NodeAVL p = index.getAccessor(store);
-                NodeAVL f = null;
+            NodeAVL p = index.getAccessor(store);
+            NodeAVL f = null;
 
-                while (p != null) {
-                    f = p;
-                    p = p.getLeft(store);
+            while (p != null) {
+                f = p;
+                p = p.getLeft(store);
+            }
+
+            p = f;
+
+            while (f != null) {
+                errors += checkNodes(f, unorderedRows);
+
+                NodeAVL fnext = index.next(store, f);
+
+                if (fnext != null) {
+                    int c = index.compareRowForInsertOrDelete(session,
+                        fnext.getRow(store), f.getRow(store), true, 0);
+
+                    if (c <= 0) {
+                        if (errors < 10) {
+                            unorderedRows.add("broken index order ");
+                        }
+
+                        errors++;
+                    }
                 }
 
-                p = f;
+                f = fnext;
+            }
 
-                while (f != null) {
-                    errors += checkNodes(f, unorderedRows);
 
-                    NodeAVL fnext = index.next(store, f);
+            if (!store.olcValidate(stamp)) {
+                stamp = store.olcReadLock();
 
-                    if (fnext != null) {
-                        int c = index.compareRowForInsertOrDelete(session,
-                            fnext.getRow(store), f.getRow(store), true, 0);
+                try {
+                    p = index.getAccessor(store);
+                    f = null;
 
-                        if (c <= 0) {
-                            if (errors < 10) {
-                                unorderedRows.add("broken index order ");
-                            }
-
-                            errors++;
-                        }
+                    while (p != null) {
+                        f = p;
+                        p = p.getLeft(store);
                     }
 
-                    f = fnext;
+                    p = f;
+
+                    while (f != null) {
+                        errors += checkNodes(f, unorderedRows);
+
+                        NodeAVL fnext = index.next(store, f);
+
+                        if (fnext != null) {
+                            int c = index.compareRowForInsertOrDelete(session,
+                                    fnext.getRow(store), f.getRow(store), true, 0);
+
+                            if (c <= 0) {
+                                if (errors < 10) {
+                                    unorderedRows.add("broken index order ");
+                                }
+
+                                errors++;
+                            }
+                        }
+                        f = fnext;
+                    }
+                } finally {
+                    store.olcReadUnlock(stamp);
                 }
-            } finally {
-                store.readUnlock();
             }
         }
 
