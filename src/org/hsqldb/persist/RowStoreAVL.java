@@ -734,24 +734,29 @@ public abstract class RowStoreAVL implements PersistentStore {
 //    }
 
     public long olcReadLock() {
-        return 1;
+        return olcLock.readLock();
     }
 
-    public void olcReadUnlock(long stamp) { }
+    public void olcReadUnlock(long stamp) {
+        olcLock.unlockRead(stamp);
+    }
 
     public long olcWriteLock() {
-        return 1;
+        return olcLock.writeLock();
     }
 
-    public void olcWriteUnlock(long stamp) { }
+    public void olcWriteUnlock(long stamp) {
+        olcLock.unlockWrite(stamp);
+    }
 
     public long olcTryReadLock() {
-        return 1;
+        return olcLock.tryOptimisticRead();
     }
 
     public boolean olcValidate(long stamp) {
-        return false;
+        return  olcLock.validate(stamp);
     }
+    
 
     void dropIndexFromRows(Index primaryIndex, Index oldIndex) {
 
