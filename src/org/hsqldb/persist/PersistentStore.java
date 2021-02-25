@@ -177,4 +177,7 @@ public interface PersistentStore {
     void olcWriteUnlock(long stamp);
 
     long olcTryReadLock();
+
+    boolean olcValidate(long stamp);
+
 }

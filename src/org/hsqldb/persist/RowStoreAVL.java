@@ -716,6 +716,10 @@ public abstract class RowStoreAVL implements PersistentStore {
         return 1;
     }
 
+    public boolean olcValidate(long stamp) {
+        return false;
+    }
+
     void dropIndexFromRows(Index primaryIndex, Index oldIndex) {
 
         RowIterator it       = primaryIndex.firstRow(this);

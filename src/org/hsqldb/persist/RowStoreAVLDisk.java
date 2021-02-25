@@ -671,4 +671,8 @@ public class RowStoreAVLDisk extends RowStoreAVL {
     public long olcTryReadLock() {
         return olcLock.tryOptimisticRead();
     }
+
+    public boolean olcValidate(long stamp) {
+        return  olcLock.validate(stamp);
+    }
 }
