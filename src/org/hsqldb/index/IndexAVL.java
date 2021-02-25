@@ -538,6 +538,7 @@ public class IndexAVL implements Index {
                         changes[i] = 2;
                     }
                 }
+                return changes;
             } finally {
                 store.olcReadUnlock(stamp);
             }
