@@ -4,3 +4,5 @@ classes
 doc
 lib/hsqldb.jar
 tmp
+build-docbook-gradled.xml
+build-gradled.xml

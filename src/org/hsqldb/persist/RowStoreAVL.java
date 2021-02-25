@@ -213,8 +213,8 @@ public abstract class RowStoreAVL implements PersistentStore {
      */
     public void delete(Session session, Row row) {
 
-        writeLock();
-
+//        writeLock();
+        long stamp = olcWriteLock();
         try {
             for (int i = 0; i < indexList.length; i++) {
                 indexList[i].delete(session, this, row);
@@ -233,7 +233,8 @@ public abstract class RowStoreAVL implements PersistentStore {
                 searchCost       = null;
             }
         } finally {
-            writeUnlock();
+//            writeUnlock();
+              olcWriteUnlock(stamp);
         }
     }
 
@@ -241,7 +242,8 @@ public abstract class RowStoreAVL implements PersistentStore {
 
         int i = 0;
 
-        writeLock();
+//        writeLock();
+        long stamp = olcWriteLock();
 
         try {
             for (; i < indexList.length; i++) {
@@ -308,7 +310,8 @@ public abstract class RowStoreAVL implements PersistentStore {
             // do not remove as there may be still be reference
             throw Error.error(ErrorCode.GENERAL_ERROR, t);
         } finally {
-            writeUnlock();
+//            writeUnlock();
+            olcWriteUnlock(stamp);
         }
     }
 
@@ -323,8 +326,8 @@ public abstract class RowStoreAVL implements PersistentStore {
     //
     public final void indexRows(Session session) {
 
-        writeLock();
-
+//        writeLock();
+        long stamp = olcWriteLock();
         try {
             for (int i = 1; i < indexList.length; i++) {
                 setAccessor(indexList[i], null);
@@ -342,7 +345,8 @@ public abstract class RowStoreAVL implements PersistentStore {
                 }
             }
         } finally {
-            writeUnlock();
+//            writeUnlock();
+            olcWriteUnlock(stamp);
         }
     }
 
@@ -670,8 +674,8 @@ public abstract class RowStoreAVL implements PersistentStore {
 
     public void reindex(Session session, Index index, Index useIndex) {
 
-        writeLock();
-
+//        writeLock();
+        long stamp = olcWriteLock();
         try {
 
             // get the iterator first in case the index set null
@@ -692,7 +696,8 @@ public abstract class RowStoreAVL implements PersistentStore {
                 index.insert(session, this, row);
             }
         } finally {
-            writeUnlock();
+//            writeUnlock();
+            olcWriteUnlock(stamp);
         }
     }
 
@@ -771,8 +776,8 @@ public abstract class RowStoreAVL implements PersistentStore {
     boolean insertIndexNodes(Session session, Index primaryIndex,
                              Index newIndex) {
 
-        writeLock();
-
+//        writeLock();
+        long stamp = olcWriteLock();
         try {
             int           position = newIndex.getPosition();
             RowIterator   it       = primaryIndex.firstRow(this);
@@ -827,7 +832,8 @@ public abstract class RowStoreAVL implements PersistentStore {
 
             throw error;
         } finally {
-            writeUnlock();
+//            writeUnlock();
+            olcWriteUnlock(stamp);
         }
     }
 
