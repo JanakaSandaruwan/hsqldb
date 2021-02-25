@@ -2260,33 +2260,60 @@ public class IndexAVL implements Index {
             if (single) {
                 nextnode = null;
             } else {
-                store.readLock();
+                long stamp = store.olcReadLock();
 
-                try {
-                    while (true) {
-                        if (reversed) {
-                            nextnode = index.last(session, store, nextnode,
-                                                  distinctCount);
-                        } else {
-                            nextnode = index.next(session, store, nextnode,
-                                                  distinctCount);
-                        }
+                while (true) {
+                    if (reversed) {
+                        nextnode = index.last(session, store, nextnode,
+                                distinctCount);
+                    } else {
+                        nextnode = index.next(session, store, nextnode,
+                                distinctCount);
+                    }
 
-                        if (nextnode == null) {
-                            break;
-                        }
+                    if (nextnode == null) {
+                        break;
+                    }
 
-                        Row row = nextnode.getRow(store);
+                    Row row = nextnode.getRow(store);
 
-                        if (session == null
-                                || store.canRead(
+                    if (session == null
+                            || store.canRead(
+                            session, row,
+                            TransactionManager.ACTION_READ, null)) {
+                        break;
+                    }
+                }
+
+                if (!store.olcValidate(stamp)) {
+                    stamp = store.olcReadLock();
+
+                    try {
+                        while (true) {
+                            if (reversed) {
+                                nextnode = index.last(session, store, nextnode,
+                                        distinctCount);
+                            } else {
+                                nextnode = index.next(session, store, nextnode,
+                                        distinctCount);
+                            }
+
+                            if (nextnode == null) {
+                                break;
+                            }
+
+                            Row row = nextnode.getRow(store);
+
+                            if (session == null
+                                    || store.canRead(
                                     session, row,
                                     TransactionManager.ACTION_READ, null)) {
-                            break;
+                                break;
+                            }
                         }
+                    } finally {
+                        store.olcReadUnlock(stamp);
                     }
-                } finally {
-                    store.readUnlock();
                 }
             }
 
