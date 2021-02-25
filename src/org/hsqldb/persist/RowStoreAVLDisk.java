@@ -651,4 +651,24 @@ public class RowStoreAVLDisk extends RowStoreAVL {
     public void writeUnlock() {
         writeLock.unlock();
     }
+
+    public long olcReadLock() {
+        return olcLock.readLock();
+    }
+
+    public void olcReadUnlock(long stamp) {
+        olcLock.unlockRead(stamp);
+    }
+
+    public long olcWriteLock() {
+        return olcLock.writeLock();
+    }
+
+    public void olcWriteUnlock(long stamp) {
+        olcLock.unlockWrite(stamp);
+    }
+
+    public long olcTryReadLock() {
+        return olcLock.tryOptimisticRead();
+    }
 }

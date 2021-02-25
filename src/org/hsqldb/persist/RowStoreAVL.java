@@ -696,6 +696,26 @@ public abstract class RowStoreAVL implements PersistentStore {
 
     public void writeUnlock() {}
 
+    public StampedLock getOlcLock() {
+        return olcLock;
+    }
+
+    public long olcReadLock() {
+        return 1;
+    }
+
+    public void olcReadUnlock(long stamp) { }
+
+    public long olcWriteLock() {
+        return 1;
+    }
+
+    public void olcWriteUnlock(long stamp) { }
+
+    public long olcTryReadLock() {
+        return 1;
+    }
+
     void dropIndexFromRows(Index primaryIndex, Index oldIndex) {
 
         RowIterator it       = primaryIndex.firstRow(this);
@@ -794,7 +814,4 @@ public abstract class RowStoreAVL implements PersistentStore {
         idx.unlinkNodes(this, root);
     }
 
-    public StampedLock getOlcLock() {
-        return olcLock;
-    }
 }
