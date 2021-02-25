@@ -167,4 +167,14 @@ public interface PersistentStore {
     void writeLock();
 
     void writeUnlock();
+
+    long olcReadLock();
+
+    void olcReadUnlock(long stamp);
+
+    long olcWriteLock();
+
+    void olcWriteUnlock(long stamp);
+
+    long olcTryReadLock();
 }
