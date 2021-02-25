@@ -1258,6 +1258,7 @@ public class IndexAVL implements Index {
                 distinctCount, false, false);
 
         if (!store.olcValidate(stamp)) {
+            stamp = store.olcReadLock();
             try {
                 x = getAccessor(store);
                 l = x;
@@ -1293,25 +1294,43 @@ public class IndexAVL implements Index {
 
     public RowIterator firstRow(PersistentStore store) {
 
-        store.readLock();
+        long stamp = store.olcTryReadLock();
 
-        try {
-            NodeAVL x = getAccessor(store);
-            NodeAVL l = x;
+        NodeAVL x = getAccessor(store);
+        NodeAVL l = x;
 
-            while (l != null) {
-                x = l;
-                l = x.getLeft(store);
-            }
-
-            if (x == null) {
-                return RangeIterator.emptyRowIterator;
-            }
-
-            return new IndexRowIterator(null, store, this, x, 0, false, false);
-        } finally {
-            store.readUnlock();
+        while (l != null) {
+            x = l;
+            l = x.getLeft(store);
         }
+
+        if (x == null) {
+            return RangeIterator.emptyRowIterator;
+        }
+
+        IndexRowIterator indexRowIterator = new IndexRowIterator(null, store, this, x, 0, false, false);
+
+        if (!store.olcValidate(stamp)) {
+            stamp = store.olcReadLock();
+            try {
+                x = getAccessor(store);
+                l = x;
+
+                while (l != null) {
+                    x = l;
+                    l = x.getLeft(store);
+                }
+
+                if (x == null) {
+                    return RangeIterator.emptyRowIterator;
+                }
+
+                return new IndexRowIterator(null, store, this, x, 0, false, false);
+            } finally {
+                store.olcReadUnlock(stamp);
+            }
+        }
+        return indexRowIterator;
     }
 
     /**
