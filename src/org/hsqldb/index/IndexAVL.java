@@ -397,7 +397,7 @@ public class IndexAVL implements Index {
         int      depth       = 0;
         int[]    depths      = new int[1];
 
-        long stamp = store.olcReadLock();
+        long stamp = store.olcTryReadLock();
 
         NodeAVL node = getAccessor(store);
         NodeAVL temp = node;
@@ -1229,37 +1229,66 @@ public class IndexAVL implements Index {
                                 RangeVariableConditions[] conditions,
                                 int distinctCount, boolean[] map) {
 
-        store.readLock();
+        long stamp = store.olcTryReadLock();
 
-        try {
-            NodeAVL x = getAccessor(store);
-            NodeAVL l = x;
+        NodeAVL x = getAccessor(store);
+        NodeAVL l = x;
 
-            while (l != null) {
-                x = l;
-                l = x.getLeft(store);
+        while (l != null) {
+            x = l;
+            l = x.getLeft(store);
+        }
+
+        while (session != null && x != null) {
+            Row row = x.getRow(store);
+
+            if (store.canRead(session, row,
+                    TransactionManager.ACTION_READ, null)) {
+                break;
             }
 
-            while (session != null && x != null) {
-                Row row = x.getRow(store);
+            x = next(store, x);
+        }
 
-                if (store.canRead(session, row,
-                                  TransactionManager.ACTION_READ, null)) {
-                    break;
+        if (x == null) {
+            return RangeIterator.emptyRowIterator;
+        }
+
+        IndexRowIterator indexRowIterator = new IndexRowIterator(session, store, this, x,
+                distinctCount, false, false);
+
+        if (!store.olcValidate(stamp)) {
+            try {
+                x = getAccessor(store);
+                l = x;
+
+                while (l != null) {
+                    x = l;
+                    l = x.getLeft(store);
                 }
 
-                x = next(store, x);
-            }
+                while (session != null && x != null) {
+                    Row row = x.getRow(store);
 
-            if (x == null) {
-                return RangeIterator.emptyRowIterator;
-            }
+                    if (store.canRead(session, row,
+                            TransactionManager.ACTION_READ, null)) {
+                        break;
+                    }
 
-            return new IndexRowIterator(session, store, this, x,
-                                        distinctCount, false, false);
-        } finally {
-            store.readUnlock();
+                    x = next(store, x);
+                }
+
+                if (x == null) {
+                    return RangeIterator.emptyRowIterator;
+                }
+
+                return new IndexRowIterator(session, store, this, x,
+                        distinctCount, false, false);
+            } finally {
+                store.olcReadUnlock(stamp);
+            }
         }
+        return indexRowIterator;
     }
 
     public RowIterator firstRow(PersistentStore store) {
