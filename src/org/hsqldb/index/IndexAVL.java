@@ -397,77 +397,151 @@ public class IndexAVL implements Index {
         int      depth       = 0;
         int[]    depths      = new int[1];
 
-        store.readLock();
+        long stamp = store.olcReadLock();
 
-        try {
-            NodeAVL node = getAccessor(store);
-            NodeAVL temp = node;
+        NodeAVL node = getAccessor(store);
+        NodeAVL temp = node;
 
-            if (node == null) {
-                return changes;
+        if (node == null) {
+            return changes;
+        }
+
+        while (true) {
+            node = temp;
+            temp = node.getLeft(store);
+
+            if (temp == null) {
+                break;
             }
 
-            while (true) {
-                node = temp;
-                temp = node.getLeft(store);
+            if (depth == Index.probeDepth) {
+                probeDeeper = true;
 
-                if (temp == null) {
-                    break;
-                }
-
-                if (depth == Index.probeDepth) {
-                    probeDeeper = true;
-
-                    break;
-                }
-
-                depth++;
+                break;
             }
 
-            while (true) {
-                temp  = next(store, node, depth, probeDepth, depths);
-                depth = depths[0];
+            depth++;
+        }
 
-                if (temp == null) {
-                    break;
-                }
+        while (true) {
+            temp  = next(store, node, depth, probeDepth, depths);
+            depth = depths[0];
 
-                compareRowForChange(session, node.getData(store),
-                                    temp.getData(store), changes);
-
-                node = temp;
-
-                counter++;
+            if (temp == null) {
+                break;
             }
 
-            if (probeDeeper) {
-                double[] factors = new double[colIndex.length];
-                int extras = probeFactor(session, store, factors, true)
-                             + probeFactor(session, store, factors, false);
+            compareRowForChange(session, node.getData(store),
+                                temp.getData(store), changes);
 
-                for (int i = 0; i < colIndex.length; i++) {
-                    factors[i] /= 2.0;
+            node = temp;
 
-                    for (int j = 0; j < factors[i]; j++) {
-                        changes[i] *= 2;
-                    }
-                }
-            }
+            counter++;
+        }
 
-            long rowCount = store.elementCount();
+        if (probeDeeper) {
+            double[] factors = new double[colIndex.length];
+            int extras = probeFactor(session, store, factors, true)
+                         + probeFactor(session, store, factors, false);
 
             for (int i = 0; i < colIndex.length; i++) {
-                if (changes[i] == 0) {
-                    changes[i] = 1;
-                }
+                factors[i] /= 2.0;
 
-                changes[i] = rowCount / changes[i];
-
-                if (changes[i] < 2) {
-                    changes[i] = 2;
+                for (int j = 0; j < factors[i]; j++) {
+                    changes[i] *= 2;
                 }
             }
+        }
 
+        long rowCount = store.elementCount();
+
+        for (int i = 0; i < colIndex.length; i++) {
+            if (changes[i] == 0) {
+                changes[i] = 1;
+            }
+
+            changes[i] = rowCount / changes[i];
+
+            if (changes[i] < 2) {
+                changes[i] = 2;
+            }
+        }
+
+        if (!store.olcValidate(stamp)) {
+            stamp = store.olcReadLock();
+
+            try {
+                node = getAccessor(store);
+                temp = node;
+
+                if (node == null) {
+                    return changes;
+                }
+
+                while (true) {
+                    node = temp;
+                    temp = node.getLeft(store);
+
+                    if (temp == null) {
+                        break;
+                    }
+
+                    if (depth == Index.probeDepth) {
+                        probeDeeper = true;
+
+                        break;
+                    }
+
+                    depth++;
+                }
+
+                while (true) {
+                    temp  = next(store, node, depth, probeDepth, depths);
+                    depth = depths[0];
+
+                    if (temp == null) {
+                        break;
+                    }
+
+                    compareRowForChange(session, node.getData(store),
+                            temp.getData(store), changes);
+
+                    node = temp;
+
+                    counter++;
+                }
+
+                if (probeDeeper) {
+                    double[] factors = new double[colIndex.length];
+                    int extras = probeFactor(session, store, factors, true)
+                            + probeFactor(session, store, factors, false);
+
+                    for (int i = 0; i < colIndex.length; i++) {
+                        factors[i] /= 2.0;
+
+                        for (int j = 0; j < factors[i]; j++) {
+                            changes[i] *= 2;
+                        }
+                    }
+                }
+
+                rowCount = store.elementCount();
+
+                for (int i = 0; i < colIndex.length; i++) {
+                    if (changes[i] == 0) {
+                        changes[i] = 1;
+                    }
+
+                    changes[i] = rowCount / changes[i];
+
+                    if (changes[i] < 2) {
+                        changes[i] = 2;
+                    }
+                }
+            } finally {
+                store.olcReadUnlock(stamp);
+            }
+        }
 /*
             StringBuilder s = new StringBuilder();
 
@@ -476,9 +550,7 @@ public class IndexAVL implements Index {
             System.out.println(s);
 */
             return changes;
-        } finally {
-            store.readUnlock();
-        }
+
     }
 
     int probeFactor(Session session, PersistentStore store, double[] changes,
