@@ -510,13 +510,25 @@ public class IndexAVL implements Index {
 
     public boolean isEmpty(PersistentStore store) {
 
-        store.readLock();
+//        store.readLock();
+//
+//        try {
+//            return getAccessor(store) == null;
+//        } finally {
+//            store.readUnlock();
+//        }
 
-        try {
-            return getAccessor(store) == null;
-        } finally {
-            store.readUnlock();
+        long stamp = store.olcTryReadLock();
+        boolean isEmpty = getAccessor(store) == null;
+        if (!store.olcValidate(stamp)) {
+            stamp = store.olcReadLock();
+            try {
+                isEmpty = getAccessor(store) == null;
+            } finally {
+                store.olcWriteUnlock(stamp);
+            }
         }
+        return isEmpty;
     }
 
     /**
