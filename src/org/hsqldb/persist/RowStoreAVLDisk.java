@@ -519,7 +519,9 @@ public class RowStoreAVLDisk extends RowStoreAVL {
             return;
         }
 
-        writeLock();
+//        writeLock();
+
+        long stamp = olcWriteLock();
 
         try {
             LongLookup pointerLookup = getPointerList();
@@ -543,7 +545,8 @@ public class RowStoreAVLDisk extends RowStoreAVL {
 
             accessorList = newAccessorList;
         } finally {
-            writeUnlock();
+//            writeUnlock();
+            olcWriteUnlock(stamp);
         }
 
         database.logger.logDetailEvent("table written "
