@@ -583,14 +583,6 @@ public class IndexAVL implements Index {
 
     public boolean isEmpty(PersistentStore store) {
 
-//        store.readLock();
-//
-//        try {
-//            return getAccessor(store) == null;
-//        } finally {
-//            store.readUnlock();
-//        }
-
         long stamp = store.olcTryReadLock();
         boolean isEmpty = getAccessor(store) == null;
         if (!store.olcValidate(stamp)) {
@@ -1988,67 +1980,126 @@ public class IndexAVL implements Index {
     NodeAVL findDistinctNode(Session session, PersistentStore store,
                              NodeAVL node, int fieldCount, boolean reversed) {
 
-        store.readLock();
+        long stamp = store.olcTryReadLock();
 
-        try {
-            NodeAVL  x          = getAccessor(store);
-            NodeAVL  n          = null;
-            NodeAVL  result     = null;
-            Row      currentRow = null;
-            Object[] rowData    = node.getData(store);
+        NodeAVL x = getAccessor(store);
+        NodeAVL n = null;
+        NodeAVL result = null;
+        Row currentRow = null;
+        Object[] rowData = node.getData(store);
 
-            while (x != null) {
-                currentRow = x.getRow(store);
+        while (x != null) {
+            currentRow = x.getRow(store);
 
-                int i = 0;
+            int i = 0;
 
-                i = compareRowNonUnique(session, currentRow.getData(),
-                                        rowData, colIndex, fieldCount);
+            i = compareRowNonUnique(session, currentRow.getData(),
+                    rowData, colIndex, fieldCount);
 
-                if (reversed) {
-                    if (i < 0) {
-                        result = x;
-                        n      = x.getRight(store);
-                    } else {
-                        n = x.getLeft(store);
-                    }
+            if (reversed) {
+                if (i < 0) {
+                    result = x;
+                    n = x.getRight(store);
                 } else {
-                    if (i <= 0) {
-                        n = x.getRight(store);
-                    } else {
-                        result = x;
-                        n      = x.getLeft(store);
-                    }
+                    n = x.getLeft(store);
                 }
-
-                if (n == null) {
-                    break;
+            } else {
+                if (i <= 0) {
+                    n = x.getRight(store);
+                } else {
+                    result = x;
+                    n = x.getLeft(store);
                 }
-
-                x = n;
             }
 
-            // MVCC 190
-            if (session == null) {
-                return result;
+            if (n == null) {
+                break;
             }
 
-            while (result != null) {
-                currentRow = result.getRow(store);
-
-                if (store.canRead(session, currentRow,
-                                  TransactionManager.ACTION_READ, colIndex)) {
-                    break;
-                }
-
-                result = reversed ? last(store, result)
-                                  : next(store, result);
-            }
-
-            return result;
-        } finally {
-            store.readUnlock();
+            x = n;
         }
+
+        // MVCC 190
+        if (session == null) {
+            return result;
+        }
+
+        while (result != null) {
+            currentRow = result.getRow(store);
+
+            if (store.canRead(session, currentRow,
+                    TransactionManager.ACTION_READ, colIndex)) {
+                break;
+            }
+
+            result = reversed ? last(store, result)
+                    : next(store, result);
+        }
+
+        if (!store.olcValidate(stamp)) {
+            stamp = store.olcReadLock();
+
+            try {
+                x = getAccessor(store);
+                n = null;
+                result = null;
+                currentRow = null;
+                rowData = node.getData(store);
+
+                while (x != null) {
+                    currentRow = x.getRow(store);
+
+                    int i = 0;
+
+                    i = compareRowNonUnique(session, currentRow.getData(),
+                            rowData, colIndex, fieldCount);
+
+                    if (reversed) {
+                        if (i < 0) {
+                            result = x;
+                            n = x.getRight(store);
+                        } else {
+                            n = x.getLeft(store);
+                        }
+                    } else {
+                        if (i <= 0) {
+                            n = x.getRight(store);
+                        } else {
+                            result = x;
+                            n = x.getLeft(store);
+                        }
+                    }
+
+                    if (n == null) {
+                        break;
+                    }
+
+                    x = n;
+                }
+
+                // MVCC 190
+                if (session == null) {
+                    return result;
+                }
+
+                while (result != null) {
+                    currentRow = result.getRow(store);
+
+                    if (store.canRead(session, currentRow,
+                            TransactionManager.ACTION_READ, colIndex)) {
+                        break;
+                    }
+
+                    result = reversed ? last(store, result)
+                            : next(store, result);
+                }
+
+                return result;
+            } finally {
+                store.olcReadUnlock(stamp);
+            }
+        }
+        return result;
     }
 
     /**
