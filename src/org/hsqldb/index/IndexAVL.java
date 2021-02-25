@@ -590,7 +590,7 @@ public class IndexAVL implements Index {
             try {
                 isEmpty = getAccessor(store) == null;
             } finally {
-                store.olcWriteUnlock(stamp);
+                store.olcReadUnlock(stamp);
             }
         }
         return isEmpty;
