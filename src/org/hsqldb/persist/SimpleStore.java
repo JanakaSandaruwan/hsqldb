@@ -193,6 +193,26 @@ public abstract class SimpleStore implements PersistentStore {
 
     public void writeUnlock() {}
 
+    public long olcReadLock() {
+        return 1;
+    }
+
+    public void olcReadUnlock(long stamp) { }
+
+    public long olcWriteLock() {
+        return 1;
+    }
+
+    public void olcWriteUnlock(long stamp) { }
+
+    public long olcTryReadLock() {
+        return 1;
+    }
+
+    public boolean olcValidate(long stamp) {
+        return false;
+    }
+
     public TableBase getTable() {
         return null;
     }
