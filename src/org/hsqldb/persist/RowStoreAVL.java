@@ -484,15 +484,27 @@ public abstract class RowStoreAVL implements PersistentStore {
         Index index = this.indexList[0];
 
         if (elementCount.get() < 0) {
-            readLock();
 
-            try {
-                long count = index.size(null, this);
+            //readLock();
+            long stamp = olcTryReadLock();
 
-                elementCount.set(count);
-            } finally {
-                readUnlock();
+            long count = index.size(null, this);
+
+            if (!olcValidate(stamp)) {
+                stamp = olcReadLock();
+
+                try {
+                    count = index.size(null, this);
+
+                } finally {
+                    //readUnlock();
+                    olcReadUnlock(stamp);
+                }
+
             }
+
+            elementCount.set(count);
+
         }
 
         return elementCount.get();
@@ -512,13 +524,29 @@ public abstract class RowStoreAVL implements PersistentStore {
                 case TableBase.MEMORY_TABLE :
                 case TableBase.CACHED_TABLE :
                 case TableBase.TEXT_TABLE :
-                    readLock();
+                    //readLock();
+                    long stamp = olcTryReadLock();
 
-                    try {
-                        return index.size(session, this);
-                    } finally {
-                        readUnlock();
+                    long elementCount = index.size(session, this);
+
+                    if (!olcValidate(stamp)) {
+                        stamp = olcReadLock();
+
+                        try {
+                            return index.size(session, this);
+
+                        } finally {
+                            //readUnlock();
+                            olcReadUnlock(stamp);
+                        }
                     }
+                    return elementCount;
+
+                //try {
+                //    return index.size(session, this);
+                //} finally {
+                //    readUnlock();
+                //}
                 default :
             }
         }
