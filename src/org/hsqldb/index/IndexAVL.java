@@ -1675,161 +1675,314 @@ public class IndexAVL implements Index {
                      int[] rowColMap, int fieldCount, int compareType,
                      int readMode, boolean reversed) {
 
-        store.readLock();
+        long stamp = store.olcTryReadLock();
 
-        try {
-            NodeAVL x          = getAccessor(store);
-            NodeAVL n          = null;
-            NodeAVL result     = null;
-            Row     currentRow = null;
+        NodeAVL x = getAccessor(store);
+        NodeAVL n = null;
+        NodeAVL result = null;
+        Row currentRow = null;
 
-            if (compareType != OpTypes.EQUAL
-                    && compareType != OpTypes.IS_NULL) {
-                fieldCount--;
+        if (compareType != OpTypes.EQUAL
+                && compareType != OpTypes.IS_NULL) {
+            fieldCount--;
 
-                if (compareType == OpTypes.SMALLER
-                        || compareType == OpTypes.SMALLER_EQUAL
-                        || compareType == OpTypes.MAX) {
-                    reversed = true;
-                }
+            if (compareType == OpTypes.SMALLER
+                    || compareType == OpTypes.SMALLER_EQUAL
+                    || compareType == OpTypes.MAX) {
+                reversed = true;
+            }
+        }
+
+        while (x != null) {
+            currentRow = x.getRow(store);
+
+            int i = 0;
+
+            if (fieldCount > 0) {
+                i = compareRowNonUnique(session, currentRow.getData(),
+                        rowdata, rowColMap, fieldCount);
             }
 
-            while (x != null) {
-                currentRow = x.getRow(store);
+            if (i == 0) {
+                switch (compareType) {
 
-                int i = 0;
+                    case OpTypes.MAX:
+                    case OpTypes.IS_NULL:
+                    case OpTypes.EQUAL: {
+                        result = x;
 
-                if (fieldCount > 0) {
-                    i = compareRowNonUnique(session, currentRow.getData(),
-                                            rowdata, rowColMap, fieldCount);
-                }
-
-                if (i == 0) {
-                    switch (compareType) {
-
-                        case OpTypes.MAX :
-                        case OpTypes.IS_NULL :
-                        case OpTypes.EQUAL : {
-                            result = x;
-
-                            if (reversed) {
-                                n = x.getRight(store);
-                            } else {
-                                n = x.getLeft(store);
-                            }
-
-                            break;
+                        if (reversed) {
+                            n = x.getRight(store);
+                        } else {
+                            n = x.getLeft(store);
                         }
-                        case OpTypes.NOT :
-                        case OpTypes.GREATER : {
-                            i = compareObject(session, currentRow.getData(),
-                                              rowdata, rowColMap, fieldCount,
-                                              compareType);
 
-                            if (i <= 0) {
-                                n = x.getRight(store);
-                            } else {
-                                result = x;
-                                n      = x.getLeft(store);
-                            }
-
-                            break;
-                        }
-                        case OpTypes.GREATER_EQUAL_PRE :
-                        case OpTypes.GREATER_EQUAL : {
-                            i = compareObject(session, currentRow.getData(),
-                                              rowdata, rowColMap, fieldCount,
-                                              compareType);
-
-                            if (i < 0) {
-                                n = x.getRight(store);
-                            } else {
-                                result = x;
-                                n      = x.getLeft(store);
-                            }
-
-                            break;
-                        }
-                        case OpTypes.SMALLER : {
-                            i = compareObject(session, currentRow.getData(),
-                                              rowdata, rowColMap, fieldCount,
-                                              compareType);
-
-                            if (i < 0) {
-                                result = x;
-                                n      = x.getRight(store);
-                            } else {
-                                n = x.getLeft(store);
-                            }
-
-                            break;
-                        }
-                        case OpTypes.SMALLER_EQUAL : {
-                            i = compareObject(session, currentRow.getData(),
-                                              rowdata, rowColMap, fieldCount,
-                                              compareType);
-
-                            if (i <= 0) {
-                                result = x;
-                                n      = x.getRight(store);
-                            } else {
-                                n = x.getLeft(store);
-                            }
-
-                            break;
-                        }
-                        default :
-                            throw Error.runtimeError(ErrorCode.U_S0500,
-                                                     "Index");
+                        break;
                     }
-                } else if (i < 0) {
-                    n = x.getRight(store);
-                } else if (i > 0) {
-                    n = x.getLeft(store);
-                }
+                    case OpTypes.NOT:
+                    case OpTypes.GREATER: {
+                        i = compareObject(session, currentRow.getData(),
+                                rowdata, rowColMap, fieldCount,
+                                compareType);
 
-                if (n == null) {
-                    break;
-                }
+                        if (i <= 0) {
+                            n = x.getRight(store);
+                        } else {
+                            result = x;
+                            n = x.getLeft(store);
+                        }
 
-                x = n;
+                        break;
+                    }
+                    case OpTypes.GREATER_EQUAL_PRE:
+                    case OpTypes.GREATER_EQUAL: {
+                        i = compareObject(session, currentRow.getData(),
+                                rowdata, rowColMap, fieldCount,
+                                compareType);
+
+                        if (i < 0) {
+                            n = x.getRight(store);
+                        } else {
+                            result = x;
+                            n = x.getLeft(store);
+                        }
+
+                        break;
+                    }
+                    case OpTypes.SMALLER: {
+                        i = compareObject(session, currentRow.getData(),
+                                rowdata, rowColMap, fieldCount,
+                                compareType);
+
+                        if (i < 0) {
+                            result = x;
+                            n = x.getRight(store);
+                        } else {
+                            n = x.getLeft(store);
+                        }
+
+                        break;
+                    }
+                    case OpTypes.SMALLER_EQUAL: {
+                        i = compareObject(session, currentRow.getData(),
+                                rowdata, rowColMap, fieldCount,
+                                compareType);
+
+                        if (i <= 0) {
+                            result = x;
+                            n = x.getRight(store);
+                        } else {
+                            n = x.getLeft(store);
+                        }
+
+                        break;
+                    }
+                    default:
+                        throw Error.runtimeError(ErrorCode.U_S0500,
+                                "Index");
+                }
+            } else if (i < 0) {
+                n = x.getRight(store);
+            } else if (i > 0) {
+                n = x.getLeft(store);
             }
 
-            // MVCC 190
-            if (session == null) {
-                return result;
+            if (n == null) {
+                break;
             }
 
-            while (result != null) {
-                currentRow = result.getRow(store);
+            x = n;
+        }
 
-                if (store.canRead(session, currentRow, readMode, colIndex)) {
-                    break;
+        // MVCC 190
+        if (session == null) {
+            return result;
+        }
+
+        while (result != null) {
+            currentRow = result.getRow(store);
+
+            if (store.canRead(session, currentRow, readMode, colIndex)) {
+                break;
+            }
+
+            result = reversed ? last(store, result)
+                    : next(store, result);
+
+            if (result == null) {
+                break;
+            }
+
+            currentRow = result.getRow(store);
+
+            if (fieldCount > 0
+                    && compareRowNonUnique(
+                    session, currentRow.getData(), rowdata, rowColMap,
+                    fieldCount) != 0) {
+                result = null;
+
+                break;
+            }
+        }
+
+        if (!store.olcValidate(stamp)) {
+            stamp = store.olcReadLock();
+
+            try {
+                x = getAccessor(store);
+                n = null;
+                result = null;
+                currentRow = null;
+
+                if (compareType != OpTypes.EQUAL
+                        && compareType != OpTypes.IS_NULL) {
+                    fieldCount--;
+
+                    if (compareType == OpTypes.SMALLER
+                            || compareType == OpTypes.SMALLER_EQUAL
+                            || compareType == OpTypes.MAX) {
+                        reversed = true;
+                    }
                 }
 
-                result = reversed ? last(store, result)
-                                  : next(store, result);
+                while (x != null) {
+                    currentRow = x.getRow(store);
 
-                if (result == null) {
-                    break;
+                    int i = 0;
+
+                    if (fieldCount > 0) {
+                        i = compareRowNonUnique(session, currentRow.getData(),
+                                rowdata, rowColMap, fieldCount);
+                    }
+
+                    if (i == 0) {
+                        switch (compareType) {
+
+                            case OpTypes.MAX:
+                            case OpTypes.IS_NULL:
+                            case OpTypes.EQUAL: {
+                                result = x;
+
+                                if (reversed) {
+                                    n = x.getRight(store);
+                                } else {
+                                    n = x.getLeft(store);
+                                }
+
+                                break;
+                            }
+                            case OpTypes.NOT:
+                            case OpTypes.GREATER: {
+                                i = compareObject(session, currentRow.getData(),
+                                        rowdata, rowColMap, fieldCount,
+                                        compareType);
+
+                                if (i <= 0) {
+                                    n = x.getRight(store);
+                                } else {
+                                    result = x;
+                                    n = x.getLeft(store);
+                                }
+
+                                break;
+                            }
+                            case OpTypes.GREATER_EQUAL_PRE:
+                            case OpTypes.GREATER_EQUAL: {
+                                i = compareObject(session, currentRow.getData(),
+                                        rowdata, rowColMap, fieldCount,
+                                        compareType);
+
+                                if (i < 0) {
+                                    n = x.getRight(store);
+                                } else {
+                                    result = x;
+                                    n = x.getLeft(store);
+                                }
+
+                                break;
+                            }
+                            case OpTypes.SMALLER: {
+                                i = compareObject(session, currentRow.getData(),
+                                        rowdata, rowColMap, fieldCount,
+                                        compareType);
+
+                                if (i < 0) {
+                                    result = x;
+                                    n = x.getRight(store);
+                                } else {
+                                    n = x.getLeft(store);
+                                }
+
+                                break;
+                            }
+                            case OpTypes.SMALLER_EQUAL: {
+                                i = compareObject(session, currentRow.getData(),
+                                        rowdata, rowColMap, fieldCount,
+                                        compareType);
+
+                                if (i <= 0) {
+                                    result = x;
+                                    n = x.getRight(store);
+                                } else {
+                                    n = x.getLeft(store);
+                                }
+
+                                break;
+                            }
+                            default:
+                                throw Error.runtimeError(ErrorCode.U_S0500,
+                                        "Index");
+                        }
+                    } else if (i < 0) {
+                        n = x.getRight(store);
+                    } else if (i > 0) {
+                        n = x.getLeft(store);
+                    }
+
+                    if (n == null) {
+                        break;
+                    }
+
+                    x = n;
                 }
 
-                currentRow = result.getRow(store);
+                // MVCC 190
+                if (session == null) {
+                    return result;
+                }
 
-                if (fieldCount > 0
-                        && compareRowNonUnique(
+                while (result != null) {
+                    currentRow = result.getRow(store);
+
+                    if (store.canRead(session, currentRow, readMode, colIndex)) {
+                        break;
+                    }
+
+                    result = reversed ? last(store, result)
+                            : next(store, result);
+
+                    if (result == null) {
+                        break;
+                    }
+
+                    currentRow = result.getRow(store);
+
+                    if (fieldCount > 0
+                            && compareRowNonUnique(
                             session, currentRow.getData(), rowdata, rowColMap,
                             fieldCount) != 0) {
-                    result = null;
+                        result = null;
 
-                    break;
+                        break;
+                    }
                 }
-            }
 
-            return result;
-        } finally {
-            store.readUnlock();
+                return result;
+            } finally {
+                store.olcReadUnlock(stamp);
+            }
         }
+        return result;
     }
 
     NodeAVL findDistinctNode(Session session, PersistentStore store,
